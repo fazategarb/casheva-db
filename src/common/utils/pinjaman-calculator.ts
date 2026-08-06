@@ -19,8 +19,7 @@ export function hitungJadwalAngsuran(
   const rows: AngsuranBaris[] = [];
 
   for (let bulan = 1; bulan <= tenorBulan; bulan += 1) {
-    const pokok =
-      bulan === tenorBulan ? roundRp(sisa) : pokokPerBulan;
+    const pokok = bulan === tenorBulan ? roundRp(sisa) : pokokPerBulan;
     const bunga = roundRp((sisa * bungaPersenBulan) / 100);
     const total = pokok + bunga;
     sisa = roundRp(sisa - pokok);
@@ -37,7 +36,10 @@ export function hitungJadwalAngsuran(
   return rows;
 }
 
-export function validasiPinjaman(nominal: number, tenorBulan: number): string | null {
+export function validasiPinjaman(
+  nominal: number,
+  tenorBulan: number,
+): string | null {
   if (nominal < 1_000_000 || nominal > 20_000_000) {
     return 'Nominal pinjaman harus antara Rp 1.000.000 dan Rp 20.000.000';
   }

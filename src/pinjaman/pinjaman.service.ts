@@ -22,9 +22,7 @@ const pinjamanInclude = {
   angsuran: { orderBy: { bulanKe: 'asc' as const } },
 } as const;
 
-const ALLOWED_TRANSITIONS: Partial<
-  Record<StatusPinjaman, StatusPinjaman[]>
-> = {
+const ALLOWED_TRANSITIONS: Partial<Record<StatusPinjaman, StatusPinjaman[]>> = {
   [StatusPinjaman.DIAJUKAN]: [
     StatusPinjaman.VERIFIKASI_PRIMKOP,
     StatusPinjaman.DITOLAK,
@@ -81,10 +79,29 @@ export class PinjamanService {
     }
 
     const anggota = await this.prisma.anggota.findFirst({
-      where: { id: dto.anggotaId, satminkalId: user.satminkalId, isAktif: true },
+      where: {
+        id: dto.anggotaId,
+        satminkalId: user.satminkalId,
+        isAktif: true,
+      },
     });
     if (!anggota) {
       throw new NotFoundException('Anggota aktif tidak ditemukan');
+    }
+
+    // FIX 1: Cek apakah anggota masih memiliki pinjaman aktif / outstanding
+    const activeLoan = await this.prisma.pinjaman.findFirst({
+      where: {
+        anggotaId: dto.anggotaId,
+        status: {
+          notIn: [StatusPinjaman.LUNAS, StatusPinjaman.DITOLAK],
+        },
+      },
+    });
+    if (activeLoan) {
+      throw new BadRequestException(
+        'Anggota masih memiliki pengajuan atau pinjaman yang belum lunas.',
+      );
     }
 
     return this.prisma.pinjaman.create({
@@ -99,11 +116,7 @@ export class PinjamanService {
     });
   }
 
-  async updateStatus(
-    user: JwtUser,
-    id: string,
-    dto: UpdateStatusPinjamanDto,
-  ) {
+  async updateStatus(user: JwtUser, id: string, dto: UpdateStatusPinjamanDto) {
     const pinjaman = await this.findOne(user, id);
     const next = dto.status as StatusPinjaman;
     const allowed = ALLOWED_TRANSITIONS[pinjaman.status] ?? [];
@@ -123,9 +136,7 @@ export class PinjamanService {
   async cairkan(user: JwtUser, id: string, dto: CairkanPinjamanDto) {
     const pinjaman = await this.findOne(user, id);
     if (pinjaman.status !== StatusPinjaman.MENUNGGU_DOKUMEN) {
-      throw new BadRequestException(
-        'Pinjaman harus berstatus MENUNGGU_DOKUMEN sebelum pencairan',
-      );
+      throw new BadRequestException('Pinjaman belum siap untuk dicairkan');
     }
     if (pinjaman.angsuran.length > 0) {
       throw new BadRequestException('Jadwal angsuran sudah dibuat');
@@ -140,9 +151,12 @@ export class PinjamanService {
     return this.prisma.$transaction(async (tx) => {
       await tx.angsuran.createMany({
         data: jadwal.map((row) => {
-          const jatuh = new Date(tanggalCair);
-          jatuh.setMonth(jatuh.getMonth() + row.bulanKe);
-          jatuh.setDate(5);
+          // FIX 2: Mencegah bug Date Mutability pada JS
+          const jatuh = new Date(
+            tanggalCair.getFullYear(),
+            tanggalCair.getMonth() + row.bulanKe,
+            5,
+          );
           return {
             pinjamanId: id,
             bulanKe: row.bulanKe,
@@ -187,7 +201,11 @@ export class PinjamanService {
       where: { id: user.satminkalId },
     });
     const tahun = new Date().getFullYear();
-    const noInvoice = await this.generateInvoice(user.satminkalId, satminkal.kode, tahun);
+    const noInvoice = await this.generateInvoice(
+      user.satminkalId,
+      satminkal.kode,
+      tahun,
+    );
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const paid = await tx.angsuran.update({
@@ -216,6 +234,7 @@ export class PinjamanService {
         },
       });
 
+      // FIX 3: Masukkan satminkalId jika model Pendapatan membutuhkan isolasi tenant
       await tx.pendapatan.create({
         data: {
           tahun,

@@ -17,7 +17,7 @@ datasource db {
 model Kotama {
   id        String      @id @default(uuid())
   kode      String      @unique // kd_Kotama
-  nama      String      // nm_Kotama
+  nama      String // nm_Kotama
   satminkal Satminkal[]
   users     User[]
   createdAt DateTime    @default(now())
@@ -29,13 +29,15 @@ model Kotama {
 model Satminkal {
   id        String    @id @default(uuid())
   kode      String    @unique // kd_Satker
-  nama      String    // nm_Satker
+  nama      String // nm_Satker
   kotamaId  String
   kotama    Kotama    @relation(fields: [kotamaId], references: [id])
   users     User[]
   anggota   Anggota[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  pendapatan Pendapatan[]
 
   @@index([kotamaId])
   @@map("tb_satker")
@@ -44,7 +46,7 @@ model Satminkal {
 model Pangkat {
   id       String          @id @default(uuid())
   kodePkt  Int             @unique // kd_pkt
-  nama     String          // ur_pkt
+  nama     String // ur_pkt
   kategori KategoriPangkat
   anggota  Anggota[]
 
@@ -54,7 +56,7 @@ model Pangkat {
 model Korps {
   id      String    @id @default(uuid())
   kode    String    @unique @db.Char(1) // kd_crp
-  nama    String    // ur_crp
+  nama    String // ur_crp
   anggota Anggota[]
 
   @@map("tb_crp")
@@ -98,22 +100,22 @@ model User {
 // ==========================================
 
 model Anggota {
-  id          String      @id @default(uuid())
+  id          String       @id @default(uuid())
   nama        String
-  nrpNip      String      @unique
+  nrpNip      String       @unique
   pangkatId   String
-  pangkat     Pangkat     @relation(fields: [pangkatId], references: [id])
+  pangkat     Pangkat      @relation(fields: [pangkatId], references: [id])
   korpsId     String
-  korps       Korps       @relation(fields: [korpsId], references: [id])
+  korps       Korps        @relation(fields: [korpsId], references: [id])
   satminkalId String
-  satminkal   Satminkal   @relation(fields: [satminkalId], references: [id])
-  isAktif     Boolean     @default(true)
-  tmtAnggota  DateTime    @default(now())
+  satminkal   Satminkal    @relation(fields: [satminkalId], references: [id])
+  isAktif     Boolean      @default(true)
+  tmtAnggota  DateTime     @default(now())
   simpanan    Simpanan[]
   pinjaman    Pinjaman[]
   shuAnggota  ShuAnggota[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([satminkalId])
 }
@@ -123,20 +125,20 @@ model Anggota {
 // ==========================================
 
 enum JenisSimpanan {
-  POKOK    // Rp 50.000 (sekali)
-  WAJIB    // Rp 100.000 (sekali)
+  POKOK // Rp 50.000 (sekali)
+  WAJIB // Rp 100.000 (sekali)
   SUKARELA // Pamen/Pama/Ba-Ta-ASN per bulan
 }
 
 model Simpanan {
-  id        String        @id @default(uuid())
-  anggotaId String
-  anggota   Anggota       @relation(fields: [anggotaId], references: [id])
-  jenis     JenisSimpanan
-  nominal   Decimal       @db.Decimal(18, 2)
-  periode   DateTime?     // bulan simpanan sukarela (tanggal 5)
+  id         String        @id @default(uuid())
+  anggotaId  String
+  anggota    Anggota       @relation(fields: [anggotaId], references: [id])
+  jenis      JenisSimpanan
+  nominal    Decimal       @db.Decimal(18, 2)
+  periode    DateTime? // bulan simpanan sukarela (tanggal 5)
   keterangan String?
-  createdAt DateTime      @default(now())
+  createdAt  DateTime      @default(now())
 
   @@index([anggotaId, jenis])
   @@index([periode])
@@ -159,20 +161,20 @@ enum StatusPinjaman {
 }
 
 model Pinjaman {
-  id            String         @id @default(uuid())
-  anggotaId     String
-  anggota       Anggota        @relation(fields: [anggotaId], references: [id])
-  nominal       Decimal        @db.Decimal(18, 2)
-  tenorBulan    Int
-  bungaPersenTahun Decimal     @default(12) @db.Decimal(5, 2)
-  status        StatusPinjaman @default(DIAJUKAN)
-  tanggalAjuan  DateTime       @default(now())
-  tanggalCair   DateTime?
-  sisaPokok     Decimal?       @db.Decimal(18, 2)
-  angsuran      Angsuran[]
-  dokumen       DokumenPinjaman[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id               String            @id @default(uuid())
+  anggotaId        String
+  anggota          Anggota           @relation(fields: [anggotaId], references: [id])
+  nominal          Decimal           @db.Decimal(18, 2)
+  tenorBulan       Int
+  bungaPersenTahun Decimal           @default(12) @db.Decimal(5, 2)
+  status           StatusPinjaman    @default(DIAJUKAN)
+  tanggalAjuan     DateTime          @default(now())
+  tanggalCair      DateTime?
+  sisaPokok        Decimal?          @db.Decimal(18, 2)
+  angsuran         Angsuran[]
+  dokumen          DokumenPinjaman[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@index([anggotaId])
   @@index([status])
@@ -214,13 +216,14 @@ enum JenisPendapatan {
 }
 
 model Pendapatan {
-  id        String          @id @default(uuid())
-  tahun     Int
-  jenis     JenisPendapatan
-  nominal   Decimal         @db.Decimal(18, 2)
-  keterangan String?
-  tanggal   DateTime        @default(now())
-  createdAt DateTime        @default(now())
+  id          String     @id @default(uuid())
+  satminkalId String?
+  satminkal   Satminkal? @relation(fields: [satminkalId], references: [id])
+  tahun       Int
+  jenis       String
+  nominal     Decimal
+  keterangan  String?
+  createdAt   DateTime   @default(now())
 
   @@index([tahun])
 }
@@ -233,13 +236,13 @@ enum JenisBiayaOperasional {
 }
 
 model BiayaOperasional {
-  id        String                @id @default(uuid())
-  tahun     Int
-  jenis     JenisBiayaOperasional
-  nominal   Decimal               @db.Decimal(18, 2)
+  id         String                @id @default(uuid())
+  tahun      Int
+  jenis      JenisBiayaOperasional
+  nominal    Decimal               @db.Decimal(18, 2)
   keterangan String?
-  tanggal   DateTime              @default(now())
-  createdAt DateTime              @default(now())
+  tanggal    DateTime              @default(now())
+  createdAt  DateTime              @default(now())
 
   @@index([tahun])
 }
@@ -249,20 +252,20 @@ model BiayaOperasional {
 // ==========================================
 
 model PeriodeShu {
-  id              String       @id @default(uuid())
-  tahun           Int          @unique
-  totalPendapatan Decimal      @db.Decimal(18, 2)
-  totalBeban      Decimal      @db.Decimal(18, 2)
-  shuBersih       Decimal      @db.Decimal(18, 2)
-  cadangan        Decimal      @db.Decimal(18, 2)
-  jasaModal       Decimal      @db.Decimal(18, 2)
-  jasaUsaha       Decimal      @db.Decimal(18, 2)
-  pengurus        Decimal      @db.Decimal(18, 2)
-  sosialPendidikan Decimal     @db.Decimal(18, 2)
-  ditutup         Boolean      @default(false)
-  ditutupPada     DateTime?
-  shuAnggota      ShuAnggota[]
-  createdAt       DateTime     @default(now())
+  id               String       @id @default(uuid())
+  tahun            Int          @unique
+  totalPendapatan  Decimal      @db.Decimal(18, 2)
+  totalBeban       Decimal      @db.Decimal(18, 2)
+  shuBersih        Decimal      @db.Decimal(18, 2)
+  cadangan         Decimal      @db.Decimal(18, 2)
+  jasaModal        Decimal      @db.Decimal(18, 2)
+  jasaUsaha        Decimal      @db.Decimal(18, 2)
+  pengurus         Decimal      @db.Decimal(18, 2)
+  sosialPendidikan Decimal      @db.Decimal(18, 2)
+  ditutup          Boolean      @default(false)
+  ditutupPada      DateTime?
+  shuAnggota       ShuAnggota[]
+  createdAt        DateTime     @default(now())
 }
 
 model ShuAnggota {

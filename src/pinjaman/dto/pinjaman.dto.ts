@@ -1,5 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsNumber, Max, Min } from 'class-validator';
+import { StatusPinjaman } from '@prisma/client';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class CreatePinjamanDto {
   @ApiProperty()
@@ -20,24 +31,23 @@ export class CreatePinjamanDto {
 }
 
 export class UpdateStatusPinjamanDto {
-  @ApiProperty({
-    enum: [
-      'VERIFIKASI_PRIMKOP',
-      'VERIFIKASI_JURU_BAYAR',
-      'REKOMENDASI_PIMPINAN',
-      'SETUJU_KAPRIM',
-      'MENUNGGU_DOKUMEN',
-      'DITOLAK',
-    ],
-  })
-  @IsNotEmpty()
-  status!: string;
+  @ApiProperty({ enum: StatusPinjaman })
+  @IsEnum(StatusPinjaman)
+  status!: StatusPinjaman;
 
-  @ApiPropertyOptional()
+  // Tambahkan decorator ini agar diterima oleh ValidationPipe
+  @ApiPropertyOptional({ example: 'Dokumen lengkap dan memenuhi syarat' })
+  @IsOptional()
+  @IsString()
   catatan?: string;
 }
 
 export class CairkanPinjamanDto {
-  @ApiPropertyOptional({ example: '2024-03-10' })
+  @ApiPropertyOptional({
+    example: '2026-08-07',
+    description: 'Tanggal pencairan (ISO format)',
+  })
+  @IsOptional()
+  @IsDateString()
   tanggalCair?: string;
 }

@@ -9,7 +9,7 @@ export class KeuanganService {
   listPendapatan(tahun?: number) {
     return this.prisma.pendapatan.findMany({
       where: tahun ? { tahun } : undefined,
-      orderBy: { tanggal: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

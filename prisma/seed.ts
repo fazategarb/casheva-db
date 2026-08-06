@@ -2,9 +2,16 @@ import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as bcrypt from 'bcrypt';
-import { KategoriPangkat, PrismaClient, Role } from '@prisma/client';
+import {
+  KategoriPangkat,
+  PrismaClient,
+  Role,
+  StatusPinjaman,
+} from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import { decimal } from '../src/common/utils/decimal.util';
+import { hitungJadwalAngsuran } from '../src/common/utils/pinjaman-calculator';
 
 function parseSemicolonCsv(filePath: string): Record<string, string>[] {
   const raw = fs.readFileSync(filePath, 'utf8');
@@ -124,6 +131,94 @@ async function main() {
       },
     });
     console.log('👤 User demo: admin / Admin123!');
+
+    // -------------------------------------------------------------
+    // TAMBAHAN: Seed Dummy Anggota & Pinjaman untuk Pengujian API
+    // -------------------------------------------------------------
+    console.log('🌱 Seed dummy Anggota & Pinjaman...');
+
+    const samplePangkat = await prisma.pangkat.findFirst();
+    const sampleKorps = await prisma.korps.findFirst();
+
+    if (samplePangkat && sampleKorps) {
+      // 1. Buat Dummy Anggota 1 (Aktif, tanpa pinjaman)
+      const anggota1 = await prisma.anggota.upsert({
+        where: { nrpNip: '31010012340190' },
+        create: {
+          nrpNip: '31010012340190',
+          nama: 'Sertu Ahmad Subagja',
+          satminkalId: satminkalDefault.id,
+          pangkatId: samplePangkat.id,
+          korpsId: sampleKorps.id,
+          isAktif: true,
+        },
+        update: {
+          satminkalId: satminkalDefault.id,
+        },
+      });
+
+      // 2. Buat Dummy Anggota 2 (Mempunyai pinjaman aktif/dicairkan)
+      const anggota2 = await prisma.anggota.upsert({
+        where: { nrpNip: '31010056780292' },
+        create: {
+          nrpNip: '31010056780292',
+          nama: 'Serda Budi Santoso',
+          satminkalId: satminkalDefault.id,
+          pangkatId: samplePangkat.id,
+          korpsId: sampleKorps.id,
+          isAktif: true,
+        },
+        update: {
+          satminkalId: satminkalDefault.id,
+        },
+      });
+
+      // 3. Seed Pinjaman Dummy untuk Anggota 2 (Status DICAIRKAN + Angsuran)
+      const pinjamanExisting = await prisma.pinjaman.findFirst({
+        where: { anggotaId: anggota2.id, status: StatusPinjaman.DICAIRKAN },
+      });
+
+      if (!pinjamanExisting) {
+        const nominal = 10000000; // Rp 10.000.000
+        const tenor = 12; // 12 Bulan
+        const tanggalCair = new Date();
+
+        const pinjaman = await prisma.pinjaman.create({
+          data: {
+            anggotaId: anggota2.id,
+            nominal: decimal(nominal),
+            tenorBulan: tenor,
+            bungaPersenTahun: decimal(12),
+            status: StatusPinjaman.DICAIRKAN,
+            tanggalCair,
+            sisaPokok: decimal(nominal),
+          },
+        });
+
+        const jadwal = hitungJadwalAngsuran(nominal, tenor);
+        await prisma.angsuran.createMany({
+          data: jadwal.map((row) => {
+            const jatuh = new Date(
+              tanggalCair.getFullYear(),
+              tanggalCair.getMonth() + row.bulanKe,
+              5,
+            );
+            return {
+              pinjamanId: pinjaman.id,
+              bulanKe: row.bulanKe,
+              jatuhTempo: jatuh,
+              pokok: decimal(row.pokok),
+              bunga: decimal(row.bunga),
+              total: decimal(row.total),
+            };
+          }),
+        });
+
+        console.log(
+          `📌 Pinjaman demo dibuat untuk ${anggota2.nama} (ID: ${pinjaman.id})`,
+        );
+      }
+    }
   }
 
   console.log('✅ Seed selesai.');
