@@ -26,11 +26,23 @@
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
 ## Project setup
-
 ```bash
+# clone project
+git clone https://github.com/fazategarb/casheva-db.git
+```
+```bash
+# installing packages
 $ npm install
 ```
+```bash
+# copy enviroment
+$ cp .env.example .env
 
+# prisma command
+$ npx prisma generate
+$ npx prisma db push
+$ npx prisma db seed
+```
 ## Compile and run the project
 
 ```bash
