@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { MasterModule } from './master/master.module';
 import { PinjamanModule } from './pinjaman/pinjaman.module';
+import { SimpananModule } from './simpanan/simpanan.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PinjamanModule } from './pinjaman/pinjaman.module';
     AuthModule,
     MasterModule,
     PinjamanModule,
+    SimpananModule,
   ],
   controllers: [AppController],
   providers: [AppService],

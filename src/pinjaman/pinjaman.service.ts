@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { StatusPinjaman } from '@prisma/client';
+import { JenisPendapatan, StatusPinjaman } from '@prisma/client';
 import { JwtUser } from '../common/interfaces/jwt-user.interface';
 import {
   hitungJadwalAngsuran,
@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   CairkanPinjamanDto,
   CreatePinjamanDto,
+  PelunasanDipercepatDto,
   UpdateStatusPinjamanDto,
 } from './dto/pinjaman.dto';
 
@@ -89,7 +90,6 @@ export class PinjamanService {
       throw new NotFoundException('Anggota aktif tidak ditemukan');
     }
 
-    // FIX 1: Cek apakah anggota masih memiliki pinjaman aktif / outstanding
     const activeLoan = await this.prisma.pinjaman.findFirst({
       where: {
         anggotaId: dto.anggotaId,
@@ -118,7 +118,7 @@ export class PinjamanService {
 
   async updateStatus(user: JwtUser, id: string, dto: UpdateStatusPinjamanDto) {
     const pinjaman = await this.findOne(user, id);
-    const next = dto.status as StatusPinjaman;
+    const next = dto.status;
     const allowed = ALLOWED_TRANSITIONS[pinjaman.status] ?? [];
     if (!allowed.includes(next)) {
       throw new BadRequestException(
@@ -128,12 +128,15 @@ export class PinjamanService {
 
     return this.prisma.pinjaman.update({
       where: { id },
-      data: { status: next },
+      data: {
+        status: next,
+        ...(dto.catatan ? { catatan: dto.catatan } : {}),
+      },
       include: pinjamanInclude,
     });
   }
 
-  async cairkan(user: JwtUser, id: string, dto: CairkanPinjamanDto) {
+  async cairkan(user: JwtUser, id: string, dto?: CairkanPinjamanDto) {
     const pinjaman = await this.findOne(user, id);
     if (pinjaman.status !== StatusPinjaman.MENUNGGU_DOKUMEN) {
       throw new BadRequestException('Pinjaman belum siap untuk dicairkan');
@@ -144,14 +147,13 @@ export class PinjamanService {
 
     const nominal = toNumber(pinjaman.nominal);
     const jadwal = hitungJadwalAngsuran(nominal, pinjaman.tenorBulan);
-    const tanggalCair = dto.tanggalCair
+    const tanggalCair = dto?.tanggalCair
       ? new Date(dto.tanggalCair)
       : new Date();
 
     return this.prisma.$transaction(async (tx) => {
       await tx.angsuran.createMany({
         data: jadwal.map((row) => {
-          // FIX 2: Mencegah bug Date Mutability pada JS
           const jatuh = new Date(
             tanggalCair.getFullYear(),
             tanggalCair.getMonth() + row.bulanKe,
@@ -207,7 +209,7 @@ export class PinjamanService {
       tahun,
     );
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const paid = await tx.angsuran.update({
         where: { id: angsuranId },
         data: {
@@ -234,11 +236,11 @@ export class PinjamanService {
         },
       });
 
-      // FIX 3: Masukkan satminkalId jika model Pendapatan membutuhkan isolasi tenant
       await tx.pendapatan.create({
         data: {
+          satminkalId: user.satminkalId,
           tahun,
-          jenis: 'BUNGA_PINJAMAN',
+          jenis: JenisPendapatan.BUNGA_PINJAMAN,
           nominal: angsuran.bunga,
           keterangan: `Bunga angsuran ke-${angsuran.bulanKe} pinjaman ${angsuran.pinjamanId}`,
         },
@@ -246,8 +248,81 @@ export class PinjamanService {
 
       return paid;
     });
+  }
 
-    return updated;
+  async pelunasanDipercepat(
+    user: JwtUser,
+    pinjamanId: string,
+    dto?: PelunasanDipercepatDto,
+  ) {
+    const pinjaman = await this.findOne(user, pinjamanId);
+
+    if (pinjaman.status !== StatusPinjaman.DICAIRKAN) {
+      throw new BadRequestException(
+        'Hanya pinjaman berstatus DICAIRKAN yang dapat dilunasi secara dipercepat',
+      );
+    }
+
+    const sisaPokok = toNumber(pinjaman.sisaPokok ?? 0);
+    if (sisaPokok <= 0) {
+      throw new BadRequestException('Pinjaman sudah tidak memiliki sisa pokok');
+    }
+
+    const satminkal = await this.prisma.satminkal.findUniqueOrThrow({
+      where: { id: user.satminkalId },
+    });
+    const tglPelunasan = dto?.tanggalPelunasan
+      ? new Date(dto.tanggalPelunasan)
+      : new Date();
+    const tahun = tglPelunasan.getFullYear();
+
+    const noInvoice = await this.generateInvoice(
+      user.satminkalId,
+      satminkal.kode,
+      tahun,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const unpaidAngsuran = await tx.angsuran.findMany({
+        where: { pinjamanId, dibayar: false },
+      });
+
+      const totalBungaSisa = unpaidAngsuran.reduce(
+        (acc, curr) => acc + toNumber(curr.bunga),
+        0,
+      );
+
+      await tx.angsuran.updateMany({
+        where: { pinjamanId, dibayar: false },
+        data: {
+          dibayar: true,
+          tanggalBayar: tglPelunasan,
+          noInvoice,
+        },
+      });
+
+      await tx.pinjaman.update({
+        where: { id: pinjamanId },
+        data: {
+          sisaPokok: decimal(0),
+          status: StatusPinjaman.LUNAS,
+        },
+      });
+
+      if (totalBungaSisa > 0) {
+        await tx.pendapatan.create({
+          data: {
+            satminkalId: user.satminkalId,
+            tahun,
+            jenis: JenisPendapatan.BUNGA_PINJAMAN,
+            nominal: decimal(totalBungaSisa),
+            keterangan: `Pelunasan dipercepat pinjaman ${pinjamanId} (${dto?.keterangan ?? 'Pelunasan Awal'})`,
+          },
+        });
+      }
+
+      return this.findOne(user, pinjamanId);
+    });
   }
 
   private async generateInvoice(

@@ -8,13 +8,15 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
 
 export class CreatePinjamanDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'ID Anggota (UUID)' })
   @IsNotEmpty()
+  @IsUUID()
   anggotaId!: string;
 
   @ApiProperty({ example: 5_000_000, minimum: 1_000_000, maximum: 20_000_000 })
@@ -35,7 +37,6 @@ export class UpdateStatusPinjamanDto {
   @IsEnum(StatusPinjaman)
   status!: StatusPinjaman;
 
-  // Tambahkan decorator ini agar diterima oleh ValidationPipe
   @ApiPropertyOptional({ example: 'Dokumen lengkap dan memenuhi syarat' })
   @IsOptional()
   @IsString()
@@ -50,4 +51,22 @@ export class CairkanPinjamanDto {
   @IsOptional()
   @IsDateString()
   tanggalCair?: string;
+}
+
+export class PelunasanDipercepatDto {
+  @ApiPropertyOptional({
+    example: '2026-08-07',
+    description: 'Tanggal pelunasan (ISO format)',
+  })
+  @IsOptional()
+  @IsDateString()
+  tanggalPelunasan?: string;
+
+  @ApiPropertyOptional({
+    example: 'Pelunasan dipercepat oleh anggota',
+    description: 'Keterangan pelunasan',
+  })
+  @IsOptional()
+  @IsString()
+  keterangan?: string;
 }

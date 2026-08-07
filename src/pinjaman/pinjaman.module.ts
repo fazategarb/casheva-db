@@ -4,7 +4,7 @@ import { PinjamanController } from './pinjaman.controller';
 import { PinjamanService } from './pinjaman.service';
 
 @Module({
-  imports: [PrismaModule], // Tambahkan PrismaModule
+  imports: [PrismaModule],
   controllers: [PinjamanController],
   providers: [PinjamanService],
   exports: [PinjamanService],

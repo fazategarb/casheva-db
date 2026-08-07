@@ -5,5 +5,6 @@ import { SimpananService } from './simpanan.service';
 @Module({
   controllers: [SimpananController],
   providers: [SimpananService],
+  exports: [SimpananService],
 })
 export class SimpananModule {}

@@ -3,14 +3,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { JenisSimpanan, KategoriPangkat } from '@prisma/client';
+import {
+  JenisSimpanan,
+  JenisTransaksiSimpanan,
+  KategoriPangkat,
+} from '@prisma/client';
 import {
   SIMPANAN_POKOK,
   SIMPANAN_WAJIB,
   SUKARELA_BY_KATEGORI,
 } from '../common/constants/simpanan.constants';
 import { JwtUser } from '../common/interfaces/jwt-user.interface';
-import { decimal } from '../common/utils/decimal.util';
+import { decimal, toNumber } from '../common/utils/decimal.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { SimpananMassalDto } from './dto/simpanan-massal.dto';
 
@@ -32,27 +36,37 @@ export class SimpananService {
       select: { id: true, nama: true, nrpNip: true },
     });
     const ids = anggota.map((a) => a.id);
-    const simpanan = await this.prisma.simpanan.groupBy({
-      by: ['anggotaId', 'jenis'],
+
+    // Ambil seluruh data simpanan anggota di Satminkal ini
+    const simpananList = await this.prisma.simpanan.findMany({
       where: { anggotaId: { in: ids } },
-      _sum: { nominal: true },
+      select: { anggotaId: true, jenis: true, tipe: true, nominal: true },
     });
 
     return anggota.map((a) => {
-      const rows = simpanan.filter((s) => s.anggotaId === a.id);
-      const sum = (jenis: JenisSimpanan) =>
-        Number(
-          rows.find((r) => r.jenis === jenis)?._sum.nominal ?? 0,
-        );
+      const userRows = simpananList.filter((s) => s.anggotaId === a.id);
+
+      const calculateTotal = (jenis: JenisSimpanan) => {
+        return userRows
+          .filter((r) => r.jenis === jenis)
+          .reduce((acc, curr) => {
+            const val = toNumber(curr.nominal);
+            return curr.tipe === JenisTransaksiSimpanan.SETOR
+              ? acc + val
+              : acc - val;
+          }, 0);
+      };
+
+      const totalPokok = calculateTotal(JenisSimpanan.POKOK);
+      const totalWajib = calculateTotal(JenisSimpanan.WAJIB);
+      const totalSukarela = calculateTotal(JenisSimpanan.SUKARELA);
+
       return {
         ...a,
-        totalPokok: sum(JenisSimpanan.POKOK),
-        totalWajib: sum(JenisSimpanan.WAJIB),
-        totalSukarela: sum(JenisSimpanan.SUKARELA),
-        totalSimpanan:
-          sum(JenisSimpanan.POKOK) +
-          sum(JenisSimpanan.WAJIB) +
-          sum(JenisSimpanan.SUKARELA),
+        totalPokok,
+        totalWajib,
+        totalSukarela,
+        totalSimpanan: totalPokok + totalWajib + totalSukarela,
       };
     });
   }
@@ -77,12 +91,14 @@ export class SimpananService {
         {
           anggotaId,
           jenis: JenisSimpanan.POKOK,
+          tipe: JenisTransaksiSimpanan.SETOR,
           nominal: decimal(SIMPANAN_POKOK),
           keterangan: 'Simpanan pokok awal',
         },
         {
           anggotaId,
           jenis: JenisSimpanan.WAJIB,
+          tipe: JenisTransaksiSimpanan.SETOR,
           nominal: decimal(SIMPANAN_WAJIB),
           keterangan: 'Simpanan wajib awal',
         },
@@ -130,6 +146,7 @@ export class SimpananService {
         data: {
           anggotaId: anggota.id,
           jenis: JenisSimpanan.SUKARELA,
+          tipe: JenisTransaksiSimpanan.SETOR,
           nominal: decimal(nominal),
           periode,
           keterangan: `Potong sukarela ${periode.toISOString().slice(0, 7)}`,

@@ -126,19 +126,26 @@ model Anggota {
 
 enum JenisSimpanan {
   POKOK // Rp 50.000 (sekali)
-  WAJIB // Rp 100.000 (sekali)
-  SUKARELA // Pamen/Pama/Ba-Ta-ASN per bulan
+  WAJIB // Rp 100.000 (sekali/rutin)
+  SUKARELA // Tabungan bebas per bulan
+}
+
+enum JenisTransaksiSimpanan {
+  SETOR
+  TARIK
 }
 
 model Simpanan {
-  id         String        @id @default(uuid())
+  id         String                 @id @default(uuid())
   anggotaId  String
-  anggota    Anggota       @relation(fields: [anggotaId], references: [id])
+  anggota    Anggota                @relation(fields: [anggotaId], references: [id])
   jenis      JenisSimpanan
-  nominal    Decimal       @db.Decimal(18, 2)
-  periode    DateTime? // bulan simpanan sukarela (tanggal 5)
+  tipe       JenisTransaksiSimpanan @default(SETOR) // <-- DITAMBAHKAN
+  nominal    Decimal                @db.Decimal(18, 2)
+  periode    DateTime? // bulan simpanan (misal: tanggal 5)
+  noInvoice  String? // <-- DITAMBAHKAN untuk kwitansi
   keterangan String?
-  createdAt  DateTime      @default(now())
+  createdAt  DateTime               @default(now())
 
   @@index([anggotaId, jenis])
   @@index([periode])
@@ -216,14 +223,14 @@ enum JenisPendapatan {
 }
 
 model Pendapatan {
-  id          String     @id @default(uuid())
+  id          String          @id @default(uuid())
   satminkalId String?
-  satminkal   Satminkal? @relation(fields: [satminkalId], references: [id])
+  satminkal   Satminkal?      @relation(fields: [satminkalId], references: [id])
   tahun       Int
-  jenis       String
-  nominal     Decimal
+  jenis       JenisPendapatan
+  nominal     Decimal         @db.Decimal(18, 2)
   keterangan  String?
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime        @default(now())
 
   @@index([tahun])
 }
