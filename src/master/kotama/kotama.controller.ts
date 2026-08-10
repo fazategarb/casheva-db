@@ -1,8 +1,22 @@
-import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { KotamaService } from './kotama.service';
 
 @ApiTags('Master — Kotama')
+@ApiBearerAuth('JWT-auth')
+@UseGuards(AuthGuard('jwt'))
 @Controller('master/kotama')
 export class KotamaController {
   constructor(private readonly kotamaService: KotamaService) {}

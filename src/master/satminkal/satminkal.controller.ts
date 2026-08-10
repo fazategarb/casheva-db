@@ -4,11 +4,21 @@ import {
   NotFoundException,
   Param,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { SatminkalService } from './satminkal.service';
 
 @ApiTags('Master — Satminkal (Satker)')
+@ApiBearerAuth('JWT-auth')
+@UseGuards(AuthGuard('jwt'))
 @Controller('master/satminkal')
 export class SatminkalController {
   constructor(private readonly satminkalService: SatminkalService) {}
