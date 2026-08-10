@@ -1,5 +1,6 @@
 import { StatusPinjaman } from '@prisma/client';
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -47,6 +48,15 @@ export class AnggotaService {
 
   async create(user: JwtUser, dto: CreateAnggotaDto) {
     await this.assertMasterRefs(dto.pangkatId, dto.korpsId);
+
+    const existingNrp = await this.prisma.anggota.findFirst({
+      where: { nrpNip: dto.nrpNip },
+    });
+    if (existingNrp) {
+      throw new ConflictException(
+        `Anggota dengan NRP/NIP ${dto.nrpNip} sudah terdaftar`,
+      );
+    }
 
     return this.prisma.anggota.create({
       data: {

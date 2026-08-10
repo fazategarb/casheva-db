@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../prisma/prisma.module';
 import { KotamaController } from './kotama/kotama.controller';
 import { KotamaService } from './kotama/kotama.service';
 import { SatminkalController } from './satminkal/satminkal.controller';
@@ -9,6 +10,7 @@ import { KorpsController } from './korps/korps.controller';
 import { KorpsService } from './korps/korps.service';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [
     KotamaController,
     SatminkalController,

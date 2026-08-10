@@ -7,8 +7,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MasterModule } from './master/master.module';
 import { PinjamanModule } from './pinjaman/pinjaman.module';
 import { SimpananModule } from './simpanan/simpanan.module';
-import { UsersService } from './users/users.service';
-import { UsersController } from './users/users.controller';
 import { UsersModule } from './users/users.module';
 import { KeuanganModule } from './keuangan/keuangan.module';
 
@@ -23,7 +21,7 @@ import { KeuanganModule } from './keuangan/keuangan.module';
     UsersModule,
     KeuanganModule,
   ],
-  controllers: [AppController, UsersController],
-  providers: [AppService, UsersService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
