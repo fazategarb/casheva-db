@@ -4,12 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../common/cloudinary/cloudinary.service';
 import { JwtUser } from '../common/interfaces/jwt-user.interface';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export interface UploadedFileDto {
-  filename: string;
+  buffer: Buffer;
   originalname?: string;
   mimetype?: string;
   size?: number;
@@ -17,7 +16,10 @@ export interface UploadedFileDto {
 
 @Injectable()
 export class DokumenService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   async uploadDokumen(
     user: JwtUser,
@@ -25,7 +27,7 @@ export class DokumenService {
     jenis: string,
     file: UploadedFileDto,
   ) {
-    if (!file) {
+    if (!file || !file.buffer) {
       throw new BadRequestException('File dokumen wajib diunggah');
     }
 
@@ -36,17 +38,29 @@ export class DokumenService {
       throw new NotFoundException('Pinjaman tidak ditemukan');
     }
 
-    const relativePath = `/uploads/dokumen/${file.filename}`;
+    // Stream upload directly to Cloudinary
+    const cloudinaryRes = await this.cloudinaryService.uploadFile(
+      file,
+      'casheva/dokumen',
+    );
+    const fileUrl = cloudinaryRes.secure_url || cloudinaryRes.url;
 
     const doc = await this.prisma.dokumenPinjaman.create({
       data: {
         pinjamanId,
         jenis: jenis || 'Dokumen Pendukung',
-        filePath: relativePath,
+        filePath: fileUrl,
       },
     });
 
-    return doc;
+    return {
+      ...doc,
+      cloudinary: {
+        publicId: cloudinaryRes.public_id,
+        bytes: cloudinaryRes.bytes,
+        format: cloudinaryRes.format,
+      },
+    };
   }
 
   async listDokumen(user: JwtUser, pinjamanId: string) {
@@ -73,13 +87,26 @@ export class DokumenService {
       throw new NotFoundException('Dokumen tidak ditemukan');
     }
 
-    // Unlink file if exists locally
-    const absolutePath = path.join(process.cwd(), doc.filePath);
-    if (fs.existsSync(absolutePath)) {
+    // Jika filePath adalah URL Cloudinary, ekstrak public_id dan hapus dari Cloudinary
+    if (doc.filePath && doc.filePath.includes('cloudinary.com')) {
       try {
-        fs.unlinkSync(absolutePath);
+        const parts = doc.filePath.split('/');
+        const uploadIndex = parts.indexOf('upload');
+        if (uploadIndex !== -1) {
+          const folderAndFile = parts.slice(uploadIndex + 2).join('/');
+          const publicId = folderAndFile.substring(
+            0,
+            folderAndFile.lastIndexOf('.'),
+          );
+          if (publicId) {
+            await this.cloudinaryService.deleteFile(publicId);
+          }
+        }
       } catch (err) {
-        console.warn(`Gagal menghapus file fisik: ${absolutePath}`, err);
+        console.warn(
+          `Gagal menghapus file dari Cloudinary: ${doc.filePath}`,
+          err,
+        );
       }
     }
 
