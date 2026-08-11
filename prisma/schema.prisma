@@ -34,6 +34,7 @@ model Satminkal {
   kotama    Kotama    @relation(fields: [kotamaId], references: [id])
   users     User[]
   anggota   Anggota[]
+  kopstuk   Kopstuk?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -76,8 +77,10 @@ enum Role {
   ADMIN_KOPERASI
   PIMPINAN
   KAPRIM
-  PENGURUS
+  BENDAHARA
   PENGAWAS
+  ANGGOTA
+  JURU_BAYAR
 }
 
 model User {
@@ -85,7 +88,7 @@ model User {
   username    String    @unique
   password    String
   namaLengkap String
-  role        Role      @default(PENGURUS)
+  role        Role      @default(ADMIN_KOPERASI)
   kotamaId    String
   kotama      Kotama    @relation(fields: [kotamaId], references: [id])
   satminkalId String
@@ -93,6 +96,10 @@ model User {
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([kotamaId])
+  @@index([satminkalId])
+  @@map("User")
 }
 
 // ==========================================
@@ -195,12 +202,14 @@ model Angsuran {
   jatuhTempo   DateTime
   pokok        Decimal   @db.Decimal(18, 2)
   bunga        Decimal   @db.Decimal(18, 2)
+  biayaAdmin   Decimal   @default(0) @db.Decimal(18, 2)
   total        Decimal   @db.Decimal(18, 2)
   dibayar      Boolean   @default(false)
   tanggalBayar DateTime?
   noInvoice    String?   @unique
 
   @@unique([pinjamanId, bulanKe])
+  @@map("Angsuran")
 }
 
 model DokumenPinjaman {
@@ -286,4 +295,36 @@ model ShuAnggota {
   total        Decimal    @db.Decimal(18, 2)
 
   @@unique([periodeShuId, anggotaId])
+}
+
+// ==========================================
+// 8. MASTER KOPSTUK & TAJUK TANDA TANGAN
+// ==========================================
+
+model Kopstuk {
+  id           String     @id @default(uuid())
+  satminkalId  String?    @unique
+  satminkal    Satminkal? @relation(fields: [satminkalId], references: [id])
+  namaSatuan   String // Contoh: MARKAS BESAR ANGKATAN DARAT
+  namaBalak    String // Contoh: DINAS INFORMASI DAN PENGOLAHAN DATA
+  alamat       String?
+  nomorTelepon String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("tb_kopstuk")
+}
+
+model TajukTandaTangan {
+  id          String   @id @default(uuid())
+  jabatan     String // Contoh: Kasubdistekinfo Selaku Kalakgiat / Kaprimkopad
+  namaPejabat String // Contoh: Sigit Suhendro Hadi K., S.T., M.Tr.(Han)
+  pangkat     String // Contoh: Kolonel Inf
+  nrp         String // Contoh: 11020019460278
+  isAktif     Boolean  @default(true)
+  kategori    String? // Contoh: LAPORAN_SHU, KWITANSI, AKAD_KREDIT
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tb_tajuk_ttd")
 }

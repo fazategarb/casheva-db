@@ -1,8 +1,22 @@
-import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { KorpsService } from './korps.service';
 
 @ApiTags('Master — Korps')
+@ApiBearerAuth('JWT-auth')
+@UseGuards(AuthGuard('jwt'))
 @Controller('master/korps')
 export class KorpsController {
   constructor(private readonly korpsService: KorpsService) {}

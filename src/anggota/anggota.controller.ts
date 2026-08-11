@@ -18,8 +18,9 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AnggotaService } from './anggota.service';
-import { CreateAnggotaDto, UpdateAnggotaDto } from './dto/create-anggota.dto';
 import type { JwtUser } from 'src/common/interfaces/jwt-user.interface';
+import { CreateAnggotaDto } from './dto/create-anggota.dto';
+import { UpdateAnggotaDto } from './dto/update-anggota.dto';
 
 @ApiTags('Anggota Koperasi')
 @ApiBearerAuth('JWT-auth')

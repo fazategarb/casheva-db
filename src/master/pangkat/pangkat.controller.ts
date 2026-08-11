@@ -4,11 +4,20 @@ import {
   NotFoundException,
   Param,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { PangkatService } from './pangkat.service';
 
 @ApiTags('Master — Pangkat')
+@ApiBearerAuth('JWT-auth')
+@UseGuards(AuthGuard('jwt'))
 @Controller('master/pangkat')
 export class PangkatController {
   constructor(private readonly pangkatService: PangkatService) {}
@@ -22,9 +31,7 @@ export class PangkatController {
   @Get(':kodePkt')
   @ApiOperation({ summary: 'Detail Pangkat by kd_pkt' })
   @ApiParam({ name: 'kodePkt', example: 83 })
-  async findByKode(
-    @Param('kodePkt', ParseIntPipe) kodePkt: number,
-  ) {
+  async findByKode(@Param('kodePkt', ParseIntPipe) kodePkt: number) {
     const row = await this.pangkatService.findByKodePkt(kodePkt);
     if (!row) {
       throw new NotFoundException(

@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Get,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -17,16 +16,8 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-
-interface RequestWithUser extends Express.Request {
-  user: {
-    userId: string;
-    username: string;
-    role: string;
-    kotamaId: string;
-    satminkalId: string;
-  };
-}
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { JwtUser } from '../common/interfaces/jwt-user.interface';
 
 @ApiTags('Autentikasi & Session')
 @Controller('auth')
@@ -50,7 +41,7 @@ export class AuthController {
   @ApiBearerAuth('JWT-auth')
   @UseGuards(AuthGuard('jwt'))
   @Get('profile')
-  getProfile(@Request() req: RequestWithUser) {
-    return req.user;
+  getProfile(@CurrentUser() user: JwtUser) {
+    return user;
   }
 }

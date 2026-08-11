@@ -7,12 +7,22 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 
+  // ==========================================
+  // KONFIGURASI CORS
+  // ==========================================
+  app.enableCors({
+    origin: true, // Mengizinkan semua origin untuk kebutuhan dev (misal: frontend Vite http://localhost:5173)
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
+
   // Enable Global Validation Pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
@@ -42,9 +52,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(process.env.PORT || 3000);
-  console.log(`🚀 Application is running on: http://localhost:3000`);
-  console.log(`
-    📚 Swagger OpenAPI Docs available on: http://localhost:3000/api/docs`);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  console.log(
+    `📚 Swagger OpenAPI Docs available on: http://localhost:${port}/api/docs`,
+  );
 }
 void bootstrap();

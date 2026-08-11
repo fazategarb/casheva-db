@@ -43,8 +43,8 @@ export class AuthService {
         id: user.id,
         namaLengkap: user.namaLengkap,
         role: user.role,
-        kotama: user.kotama.nama,
-        satminkal: user.satminkal.nama,
+        kotama: user.kotama?.nama ?? null,
+        satminkal: user.satminkal?.nama ?? null,
       },
     };
   }

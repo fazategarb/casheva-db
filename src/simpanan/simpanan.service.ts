@@ -37,7 +37,6 @@ export class SimpananService {
     });
     const ids = anggota.map((a) => a.id);
 
-    // Ambil seluruh data simpanan anggota di Satminkal ini
     const simpananList = await this.prisma.simpanan.findMany({
       where: { anggotaId: { in: ids } },
       select: { anggotaId: true, jenis: true, tipe: true, nominal: true },
@@ -113,6 +112,7 @@ export class SimpananService {
     };
   }
 
+  // Optimasi Batch Insert (Mencegah N+1 Query)
   async sukarelaMassal(user: JwtUser, dto: SimpananMassalDto) {
     const periode = this.normalizeTanggal5(dto.periode);
 
@@ -125,42 +125,85 @@ export class SimpananService {
       throw new BadRequestException('Tidak ada anggota aktif');
     }
 
-    let created = 0;
-    let skipped = 0;
+    const anggotaIds = anggotaList.map((a) => a.id);
 
-    for (const anggota of anggotaList) {
-      const dup = await this.prisma.simpanan.findFirst({
-        where: {
-          anggotaId: anggota.id,
-          jenis: JenisSimpanan.SUKARELA,
-          periode,
-        },
-      });
-      if (dup) {
-        skipped += 1;
-        continue;
-      }
+    // Fetch seluruh transaksi sukarela periode ini dalam 1 query
+    const existingSimpanan = await this.prisma.simpanan.findMany({
+      where: {
+        anggotaId: { in: anggotaIds },
+        jenis: JenisSimpanan.SUKARELA,
+        periode,
+      },
+      select: { anggotaId: true },
+    });
 
-      const nominal = this.sukarelaNominal(anggota.pangkat.kategori);
-      await this.prisma.simpanan.create({
-        data: {
-          anggotaId: anggota.id,
-          jenis: JenisSimpanan.SUKARELA,
-          tipe: JenisTransaksiSimpanan.SETOR,
-          nominal: decimal(nominal),
-          periode,
-          keterangan: `Potong sukarela ${periode.toISOString().slice(0, 7)}`,
-        },
+    const existingAnggotaSet = new Set(
+      existingSimpanan.map((s) => s.anggotaId),
+    );
+
+    const newEntries = anggotaList
+      .filter((anggota) => !existingAnggotaSet.has(anggota.id))
+      .map((anggota) => ({
+        anggotaId: anggota.id,
+        jenis: JenisSimpanan.SUKARELA,
+        tipe: JenisTransaksiSimpanan.SETOR,
+        nominal: decimal(this.sukarelaNominal(anggota.pangkat.kategori)),
+        periode,
+        keterangan: `Potong sukarela ${periode.toISOString().slice(0, 7)}`,
+      }));
+
+    if (newEntries.length > 0) {
+      await this.prisma.simpanan.createMany({
+        data: newEntries,
       });
-      created += 1;
     }
 
     return {
       periode: periode.toISOString().slice(0, 10),
-      created,
-      skipped,
+      created: newEntries.length,
+      skipped: anggotaList.length - newEntries.length,
       totalAnggota: anggotaList.length,
     };
+  }
+
+  // Penarikan Simpanan Sukarela dengan Validasi Saldo
+  async tarikSukarela(
+    user: JwtUser,
+    anggotaId: string,
+    nominal: number,
+    keterangan?: string,
+  ) {
+    await this.assertAnggotaScope(user, anggotaId);
+
+    if (nominal <= 0) {
+      throw new BadRequestException('Nominal penarikan harus lebih dari 0');
+    }
+
+    const simpananRows = await this.prisma.simpanan.findMany({
+      where: { anggotaId, jenis: JenisSimpanan.SUKARELA },
+      select: { tipe: true, nominal: true },
+    });
+
+    const totalSaldoSukarela = simpananRows.reduce((acc, curr) => {
+      const val = toNumber(curr.nominal);
+      return curr.tipe === JenisTransaksiSimpanan.SETOR ? acc + val : acc - val;
+    }, 0);
+
+    if (totalSaldoSukarela < nominal) {
+      throw new BadRequestException(
+        `Saldo simpanan sukarela tidak mencukupi. Saldo saat ini: Rp ${totalSaldoSukarela.toLocaleString('id-ID')}`,
+      );
+    }
+
+    return this.prisma.simpanan.create({
+      data: {
+        anggotaId,
+        jenis: JenisSimpanan.SUKARELA,
+        tipe: JenisTransaksiSimpanan.TARIK,
+        nominal: decimal(nominal),
+        keterangan: keterangan ?? 'Penarikan simpanan sukarela',
+      },
+    });
   }
 
   private sukarelaNominal(kategori: KategoriPangkat): number {
