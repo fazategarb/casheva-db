@@ -5,7 +5,6 @@ import {
   Get,
   Param,
   Post,
-  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -19,18 +18,10 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
-import { diskStorage } from 'multer';
-import * as fs from 'fs';
-import * as path from 'path';
+import { memoryStorage } from 'multer';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtUser } from '../common/interfaces/jwt-user.interface';
 import { DokumenService } from './dokumen.service';
-
-const uploadDir = path.join(process.cwd(), 'uploads', 'dokumen');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 @ApiTags('Dokumen Pinjaman')
 @ApiBearerAuth('JWT-auth')
@@ -40,7 +31,7 @@ export class DokumenController {
 
   @Post('pinjaman/:pinjamanId')
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Upload dokumen pengajuan pinjaman' })
+  @ApiOperation({ summary: 'Upload dokumen pengajuan pinjaman ke Cloudinary' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -53,15 +44,7 @@ export class DokumenController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: uploadDir,
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = path.extname(file.originalname);
-          cb(null, `doc-${uniqueSuffix}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
     }),
   )
@@ -86,18 +69,8 @@ export class DokumenController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Hapus dokumen pinjaman' })
+  @ApiOperation({ summary: 'Hapus dokumen pinjaman dari Cloudinary & NeonDB' })
   async delete(@CurrentUser() user: JwtUser, @Param('id') id: string) {
     return this.dokumenService.deleteDokumen(user, id);
-  }
-
-  @Get('file/:filename')
-  @ApiOperation({ summary: 'Download atau lihat file dokumen' })
-  async getFile(@Param('filename') filename: string, @Res() res: Response) {
-    const filePath = path.join(uploadDir, filename);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'File dokumen tidak ditemukan' });
-    }
-    return res.sendFile(filePath);
   }
 }
