@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TajukTtdService } from './tajuk-ttd.service';
 import { CreateTajukTtdDto } from './dto/create-tajuk-ttd.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -16,6 +17,8 @@ import { Role, TajukTandaTangan } from '@prisma/client';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 
+@ApiTags('Tajuk TTD')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('tajuk-ttd')
 export class TajukTtdController {

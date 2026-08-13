@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { KopstukService } from './kopstuk.service';
 import { CreateKopstukDto } from './dto/create-kopstuk.dto';
 import { Role } from '@prisma/client';
@@ -6,6 +7,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 
+@ApiTags('Kopstuk')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('kopstuk')
 export class KopstukController {
