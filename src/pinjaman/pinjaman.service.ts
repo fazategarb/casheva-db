@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { JenisPendapatan, StatusPinjaman } from '@prisma/client';
+import { JenisPendapatan, JenisSimpanan, StatusPinjaman } from '@prisma/client';
 import { JwtUser } from '../common/interfaces/jwt-user.interface';
 import {
   hitungJadwalAngsuran,
@@ -26,6 +26,7 @@ const pinjamanInclude = {
 const ALLOWED_TRANSITIONS: Partial<Record<StatusPinjaman, StatusPinjaman[]>> = {
   [StatusPinjaman.DIAJUKAN]: [
     StatusPinjaman.VERIFIKASI_PRIMKOP,
+    StatusPinjaman.VERIFIKASI_JURU_BAYAR,
     StatusPinjaman.DITOLAK,
   ],
   [StatusPinjaman.VERIFIKASI_PRIMKOP]: [
@@ -104,13 +105,26 @@ export class PinjamanService {
       );
     }
 
+    // Auto-verification Primkop: Cek apakah Simpanan Pokok & Wajib anggota sudah dicatat
+    const simpananAwalCount = await this.prisma.simpanan.count({
+      where: {
+        anggotaId: dto.anggotaId,
+        jenis: { in: [JenisSimpanan.POKOK, JenisSimpanan.WAJIB] },
+      },
+    });
+
+    const initialStatus =
+      simpananAwalCount >= 2
+        ? StatusPinjaman.VERIFIKASI_JURU_BAYAR
+        : StatusPinjaman.DIAJUKAN;
+
     return this.prisma.pinjaman.create({
       data: {
         anggotaId: dto.anggotaId,
         nominal: decimal(dto.nominal),
         tenorBulan: dto.tenorBulan,
         bungaPersenTahun: decimal(12),
-        status: StatusPinjaman.DIAJUKAN,
+        status: initialStatus,
       },
       include: pinjamanInclude,
     });
