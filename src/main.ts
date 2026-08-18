@@ -49,11 +49,41 @@ async function bootstrap() {
     )
     .build();
 
+  const customCss = `
+    /* Ubah warna & styling tombol Authorize utama saat terautentikasi */
+    .swagger-ui .btn.authorize.locked {
+      background-color: #10B981 !important;
+      border-color: #10B981 !important;
+      color: #FFFFFF !important;
+      font-weight: bold !important;
+    }
+    .swagger-ui .btn.authorize.locked svg {
+      fill: #FFFFFF !important;
+    }
+
+    /* Ubah ikon gembok pada setiap endpoint saat terautentikasi menjadi gembok TERBUKA (UNLOCK) */
+    .swagger-ui .authorization__btn.locked svg {
+      fill: #10B981 !important;
+      filter: drop-shadow(0px 0px 3px rgba(16, 185, 129, 0.5));
+    }
+    
+    /* Ganti path SVG gembok tertutup menjadi SVG gembok TERBUKA (Unlocked Padlock) */
+    .swagger-ui .authorization__btn.locked svg path {
+      d: path("M9 11V7a5 5 0 0110 0v4m-3 0h-4a2 2 0 00-2 2v7a2 2 0 002 2h8a2 2 0 002-2v-7a2 2 0 00-2-2h-4z") !important;
+    }
+
+    .swagger-ui .authorization__btn.locked {
+      opacity: 1 !important;
+    }
+  `;
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
     },
+    customCss,
+    customSiteTitle: 'Casheva Koperasi - API Documentation',
   });
 
   const port = process.env.PORT || 3000;

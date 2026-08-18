@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { SERVER_BOOT_TIME } from './server-boot.constant';
 
 export interface JwtPayload {
   sub: string;
@@ -9,6 +10,7 @@ export interface JwtPayload {
   role: string;
   kotamaId?: string;
   satminkalId?: string;
+  iat?: number;
 }
 
 @Injectable()
@@ -27,6 +29,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload) {
+    if (payload.iat && payload.iat < SERVER_BOOT_TIME) {
+      throw new UnauthorizedException(
+        'Sesi telah berakhir karena server backend di-restart. Silakan login kembali.',
+      );
+    }
+
     return {
       id: payload.sub,
       userId: payload.sub,
