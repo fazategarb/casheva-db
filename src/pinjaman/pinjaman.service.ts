@@ -73,7 +73,9 @@ export class PinjamanService {
       orderBy: { createdAt: 'desc' },
     });
     return {
-      bungaPersenTahun: setting ? toNumber(setting.bungaPinjamanPersenTahun) : 12,
+      bungaPersenTahun: setting
+        ? toNumber(setting.bungaPinjamanPersenTahun)
+        : 12,
       updatedAt: setting?.updatedAt ?? null,
       riwayat: history.map((h) => ({
         id: h.id,
@@ -221,7 +223,11 @@ export class PinjamanService {
     const nominal = toNumber(pinjaman.nominal);
     const bungaPersenTahun = toNumber(pinjaman.bungaPersenTahun ?? 12);
     const bungaPersenBulan = bungaPersenTahun / 12;
-    const jadwal = hitungJadwalAngsuran(nominal, pinjaman.tenorBulan, bungaPersenBulan);
+    const jadwal = hitungJadwalAngsuran(
+      nominal,
+      pinjaman.tenorBulan,
+      bungaPersenBulan,
+    );
     const tanggalCair = dto?.tanggalCair
       ? new Date(dto.tanggalCair)
       : new Date();
