@@ -39,6 +39,7 @@ model Satminkal {
   updatedAt DateTime  @updatedAt
 
   pendapatan Pendapatan[]
+  pengaturanKoperasi PengaturanKoperasi?
 
   @@index([kotamaId])
   @@map("tb_satker")
@@ -327,4 +328,31 @@ model TajukTandaTangan {
   updatedAt   DateTime @updatedAt
 
   @@map("tb_tajuk_ttd")
+}
+
+// ==========================================
+// 9. PENGATURAN KOPERASI & SUKU BUNGA
+// ==========================================
+
+model PengaturanKoperasi {
+  id                       String    @id @default(uuid())
+  satminkalId              String    @unique
+  satminkal                Satminkal @relation(fields: [satminkalId], references: [id], onDelete: Cascade)
+  bungaPinjamanPersenTahun Decimal   @default(12) @db.Decimal(5, 2)
+  updatedAt                DateTime  @updatedAt
+  createdAt                DateTime  @default(now())
+
+  @@map("tb_pengaturan_koperasi")
+}
+
+model RiwayatBunga {
+  id               String    @id @default(uuid())
+  satminkalId      String
+  bungaPersenTahun Decimal   @db.Decimal(5, 2)
+  keterangan       String?
+  diubahOlehId     String?
+  createdAt        DateTime  @default(now())
+
+  @@index([satminkalId])
+  @@map("tb_riwayat_bunga")
 }

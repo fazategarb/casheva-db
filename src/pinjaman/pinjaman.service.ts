@@ -15,6 +15,7 @@ import {
   CairkanPinjamanDto,
   CreatePinjamanDto,
   PelunasanDipercepatDto,
+  UpdateBungaDto,
   UpdateStatusPinjamanDto,
 } from './dto/pinjaman.dto';
 
@@ -60,6 +61,56 @@ export class PinjamanService {
       },
       include: pinjamanInclude,
       orderBy: { tanggalAjuan: 'desc' },
+    });
+  }
+
+  async getPengaturanBunga(user: JwtUser) {
+    const setting = await this.prisma.pengaturanKoperasi.findUnique({
+      where: { satminkalId: user.satminkalId },
+    });
+    const history = await this.prisma.riwayatBunga.findMany({
+      where: { satminkalId: user.satminkalId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return {
+      bungaPersenTahun: setting ? toNumber(setting.bungaPinjamanPersenTahun) : 12,
+      updatedAt: setting?.updatedAt ?? null,
+      riwayat: history.map((h) => ({
+        id: h.id,
+        bungaPersenTahun: toNumber(h.bungaPersenTahun),
+        keterangan: h.keterangan,
+        createdAt: h.createdAt,
+      })),
+    };
+  }
+
+  async updatePengaturanBunga(user: JwtUser, dto: UpdateBungaDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const setting = await tx.pengaturanKoperasi.upsert({
+        where: { satminkalId: user.satminkalId },
+        create: {
+          satminkalId: user.satminkalId,
+          bungaPinjamanPersenTahun: decimal(dto.bungaPersenTahun),
+        },
+        update: {
+          bungaPinjamanPersenTahun: decimal(dto.bungaPersenTahun),
+        },
+      });
+
+      await tx.riwayatBunga.create({
+        data: {
+          satminkalId: user.satminkalId,
+          bungaPersenTahun: decimal(dto.bungaPersenTahun),
+          keterangan: dto.keterangan ?? 'Perubahan suku bunga pinjaman',
+          diubahOlehId: user.userId,
+        },
+      });
+
+      return {
+        message: 'Suku bunga pinjaman berhasil diperbarui',
+        bungaPersenTahun: toNumber(setting.bungaPinjamanPersenTahun),
+        updatedAt: setting.updatedAt,
+      };
     });
   }
 
@@ -118,12 +169,20 @@ export class PinjamanService {
         ? StatusPinjaman.VERIFIKASI_JURU_BAYAR
         : StatusPinjaman.DIAJUKAN;
 
+    // Ambil suku bunga aktif Satminkal (default 12% per tahun jika belum di-set)
+    const activeSetting = await this.prisma.pengaturanKoperasi.findUnique({
+      where: { satminkalId: user.satminkalId },
+    });
+    const activeBungaPersenTahun = activeSetting
+      ? toNumber(activeSetting.bungaPinjamanPersenTahun)
+      : 12;
+
     return this.prisma.pinjaman.create({
       data: {
         anggotaId: dto.anggotaId,
         nominal: decimal(dto.nominal),
         tenorBulan: dto.tenorBulan,
-        bungaPersenTahun: decimal(12),
+        bungaPersenTahun: decimal(activeBungaPersenTahun),
         status: initialStatus,
       },
       include: pinjamanInclude,
@@ -160,7 +219,9 @@ export class PinjamanService {
     }
 
     const nominal = toNumber(pinjaman.nominal);
-    const jadwal = hitungJadwalAngsuran(nominal, pinjaman.tenorBulan);
+    const bungaPersenTahun = toNumber(pinjaman.bungaPersenTahun ?? 12);
+    const bungaPersenBulan = bungaPersenTahun / 12;
+    const jadwal = hitungJadwalAngsuran(nominal, pinjaman.tenorBulan, bungaPersenBulan);
     const tanggalCair = dto?.tanggalCair
       ? new Date(dto.tanggalCair)
       : new Date();
