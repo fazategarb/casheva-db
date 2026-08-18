@@ -23,6 +23,7 @@ import {
   CairkanPinjamanDto,
   CreatePinjamanDto,
   PelunasanDipercepatDto,
+  UpdateBungaDto,
   UpdateStatusPinjamanDto,
 } from './dto/pinjaman.dto';
 import { PinjamanService } from './pinjaman.service';
@@ -65,6 +66,23 @@ export class PinjamanController {
   // -------------------------------------------------------------
   // 2. RUTE AKSI KHUSUS / NESTED PARAM (Ditaruh sebelum :id umum)
   // -------------------------------------------------------------
+
+  @Get('pengaturan-bunga')
+  @ApiOperation({ summary: 'Lihat suku bunga pinjaman aktif Satminkal & riwayatnya' })
+  @ApiResponse({ status: 200, description: 'Suku bunga aktif Satminkal' })
+  getPengaturanBunga(@CurrentUser() user: JwtUser) {
+    return this.pinjamanService.getPengaturanBunga(user);
+  }
+
+  @Patch('pengaturan-bunga')
+  @ApiOperation({ summary: 'Ubah suku bunga pinjaman aktif Satminkal (oleh Bendahara)' })
+  @ApiResponse({ status: 200, description: 'Suku bunga berhasil diperbarui' })
+  updatePengaturanBunga(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: UpdateBungaDto,
+  ) {
+    return this.pinjamanService.updatePengaturanBunga(user, dto);
+  }
 
   @Post('angsuran/:angsuranId/bayar')
   @ApiOperation({ summary: 'Bayar angsuran + terbitkan no invoice/kwitansi' })

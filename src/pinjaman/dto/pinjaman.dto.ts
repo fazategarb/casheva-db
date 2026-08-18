@@ -70,3 +70,24 @@ export class PelunasanDipercepatDto {
   @IsString()
   keterangan?: string;
 }
+
+export class UpdateBungaDto {
+  @ApiProperty({
+    example: 10,
+    description: 'Suku bunga pinjaman persen per tahun (misal: 10 untuk 10%, 12 untuk 12%)',
+    minimum: 0,
+    maximum: 100,
+  })
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  bungaPersenTahun!: number;
+
+  @ApiPropertyOptional({
+    example: 'Penyesuaian suku bunga pinjaman tahun 2026',
+    description: 'Keterangan alasan perubahan suku bunga',
+  })
+  @IsOptional()
+  @IsString()
+  keterangan?: string;
+}
